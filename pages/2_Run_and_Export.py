@@ -1,4 +1,4 @@
-import streamlit as st
+import os, streamlit as st
 import pandas as pd
 from core.crawler import crawl_school, fetch_html
 from core.parsers_bell import parse_dismissal_time_from_html
@@ -8,6 +8,7 @@ from core.exporter import export_facilitron
 import tomllib
 from dotenv import load_dotenv
 load_dotenv()  # reads .env into os.environ
+st.write("AI key loaded:", bool(os.getenv("OPENAI_API_KEY")))
 
 # PDF helpers
 from io import BytesIO
@@ -66,6 +67,14 @@ for idx, row in input_df.iterrows():
     bell_url = bell_override
     cal_url = cal_override
     ics_url = None
+    
+    def _is_ics(u): 
+        return isinstance(u, str) and u.lower().endswith((".ics", ".ical"))
+
+    if cal_override and _is_ics(cal_override):
+        ics_url = cal_override  # treat override as ICS
+        cal_url = None
+
 
     if not bell_url or not cal_url:
         crawl = crawl_school(url, use_openai=use_openai, max_anchors=max_anchors, delay=delay_sec, use_headless_fallback=use_headless_fallback)

@@ -1,4 +1,4 @@
-import streamlit as st
+import os, streamlit as st
 import pandas as pd
 from datetime import date, time
 import tomllib
@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()  # reads .env into os.environ
 
 st.set_page_config(page_title="After-School Planner — Settings", page_icon="📅", layout="wide")
+st.write("AI key loaded:", bool(os.getenv("OPENAI_API_KEY")))
 
 with open("config.toml","rb") as f:
     cfg = tomllib.load(f)
