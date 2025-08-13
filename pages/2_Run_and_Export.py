@@ -6,6 +6,8 @@ from core.parsers_calendar import fetch_text, parse_html_no_school_candidates, p
 from core.scheduler import ScheduleParams, compute_weekly_sessions
 from core.exporter import export_facilitron
 import tomllib
+from dotenv import load_dotenv
+load_dotenv()  # reads .env into os.environ
 
 # PDF helpers
 from io import BytesIO

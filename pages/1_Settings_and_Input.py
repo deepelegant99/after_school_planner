@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from datetime import date, time
 import tomllib
+from dotenv import load_dotenv
+load_dotenv()  # reads .env into os.environ
 
 st.set_page_config(page_title="After-School Planner — Settings", page_icon="📅", layout="wide")
 
