@@ -1,0 +1,13 @@
+[app]
+name = "After-School Planner"
+
+[export]
+columns = ["School","Date","Start Time","End Time","Title","Notes"]
+title_template = "After-School Program — {{school}}"
+notes_template = "Auto-scheduled. Dismissal: {{dismissal}}. Sessions: {{session_index}}/{{total_sessions}}."
+
+[scheduler]
+buffer_minutes = 15
+session_duration_minutes = 60
+earliest_start = "15:00"
+latest_end = "17:30"
