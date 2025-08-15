@@ -1,63 +1,108 @@
-import os, streamlit as st
+# pages/1_Settings_and_Input.py
+from __future__ import annotations
+
+import streamlit as st
 import pandas as pd
-from datetime import date, time
-import tomllib
-from dotenv import load_dotenv
-load_dotenv()  # reads .env into os.environ
+from datetime import date, time, datetime, timedelta
 
-st.set_page_config(page_title="After-School Planner — Settings", page_icon="📅", layout="wide")
-st.write("AI key loaded:", bool(os.getenv("OPENAI_API_KEY")))
+st.set_page_config(page_title="After-School Planner — Settings & Input", page_icon="🛠️", layout="wide")
+st.title("Settings & Input")
 
-with open("config.toml","rb") as f:
-    cfg = tomllib.load(f)
+# -------------------------------
+# Helper
+# -------------------------------
+def _norm_webcal(u: str | None) -> str | None:
+    if not u:
+        return u
+    uu = str(u).strip()
+    return "https://" + uu[len("webcal://"):] if uu.lower().startswith("webcal://") else uu
 
-st.title("After-School Planner")
-st.caption("CSV → crawl → parse → plan → CSV & PDF")
+# -------------------------------
+# Controls (kept minimal but compatible with page 2)
+# -------------------------------
+with st.expander("Planner settings", expanded=True):
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        buffer_minutes = st.number_input("Buffer minutes after dismissal", 0, 120, value=15)
+        session_duration_minutes = st.number_input("Session duration (minutes)", 30, 300, value=60)
+    with c2:
+        earliest_start = st.time_input("Earliest start", time(15, 0))
+        latest_end = st.time_input("Latest end", time(18, 0))
+    with c3:
+        target_sessions = st.number_input("Target sessions", 1, 60, value=10)
+        min_sessions = st.number_input("Minimum sessions", 1, 60, value=8)
 
-with st.sidebar:
-    st.header("Quarter Window")
-    q_start = st.date_input("Quarter start", value=date.today())
-    q_end = st.date_input("Quarter end", value=date(date.today().year, 12, 31))
+with st.expander("Quarter window", expanded=True):
+    today = date.today()
+    default_start = date(today.year, 8, 15)
+    default_end = date(today.year, 11, 5)
+    q_start = st.date_input("Quarter start", value=default_start)
+    q_end = st.date_input("Quarter end", value=default_end)
 
-    st.header("Timing")
-    buffer_minutes = st.number_input("Buffer minutes", min_value=0, max_value=120, value=cfg["scheduler"]["buffer_minutes"])
-    session_duration_minutes = st.number_input("Session duration (min)", min_value=30, max_value=240, value=cfg["scheduler"]["session_duration_minutes"])
-    earliest_start = st.time_input("Earliest start", value=time.fromisoformat(cfg["scheduler"]["earliest_start"]))
-    latest_end = st.time_input("Latest end", value=time.fromisoformat(cfg["scheduler"]["latest_end"]))
-
-    st.header("Sessions")
-    target_sessions = st.number_input("Target sessions", min_value=1, max_value=30, value=10)
-    min_sessions = st.number_input("Minimum sessions", min_value=1, max_value=30, value=8)
-
-    st.header("Crawl & Parsing Options")
-    use_openai = st.toggle("Use OpenAI to pick links (recommended)", value=True)
-    ai_assist_bell = st.toggle("Use AI to choose dismissal time (smarter)", value=True)
-    ai_assist_calendar = st.toggle("Use AI to classify no‑class entries", value=True)
+with st.expander("Crawler/AI", expanded=False):
+    use_openai = st.toggle("Use AI to classify no-class entries", value=True)
+    ai_assist_bell = st.toggle("AI-assisted bell parsing", value=True)
+    ai_assist_calendar = st.toggle("AI-assisted calendar parsing", value=True)
     use_headless_fallback = st.toggle("Headless browser fallback for JS sites", value=True)
-    max_anchors = st.number_input("max_anchors to send to AI", min_value=10, max_value=200, value=60)
-    delay_between_schools_seconds = st.number_input("Delay between schools (sec)", min_value=0, max_value=10, value=2)
+    max_anchors = st.number_input("Max anchors to send to AI", 10, 200, value=80)
+    delay_between_schools_seconds = st.number_input("Delay between schools (sec)", 0, 10, value=1)
 
+# -------------------------------
+# CSV Upload
+# -------------------------------
+st.subheader("Upload CSV")
 uploaded = st.file_uploader(
-    "Upload CSV (school_name, school_url, Day of the week[, bell_schedule_page_url, school_calendar_page_url])",
-    type=["csv"]
+    "Upload CSV (school_name, school_url, Day of the week, bell_schedule_page_url, school_calendar_page_url, district, district_ics_url)",
+    type=["csv"],
 )
 
 if uploaded:
-    # NEW — treats "None"/"nan"/"null" as plain strings so we can sanitize later
+    # Keep 'None'/'nan'/'null' as strings; we sanitize below
     df = pd.read_csv(uploaded, keep_default_na=False)
 
+    # Ensure newer columns exist
+    for col in ["district", "district_ics_url", "bell_schedule_page_url", "school_calendar_page_url"]:
+        if col not in df.columns:
+            df[col] = ""
+
+    # Trim/clean common text columns
+    for col in ["school_name","school_url","Day of the week","bell_schedule_page_url",
+                "school_calendar_page_url","district","district_ics_url"]:
+        df[col] = df[col].astype(str).str.strip()
+
+    # Normalize district ICS
+    df["district_ics_url"] = df["district_ics_url"].map(lambda s: _norm_webcal(s) if isinstance(s, str) else s)
+
+    # Build district -> ics map (ignore blanks; dedupe)
+    looks_like_ics = df["district_ics_url"].str.contains(r"\.ics(?:$|\?)", case=False, na=False, regex=True)
+    _map_df = df.loc[(df["district"].ne("")) & looks_like_ics, ["district", "district_ics_url"]].drop_duplicates()
+    st.session_state["district_ics_map"] = dict(_map_df.itertuples(index=False, name=None))
+
+    # Optional school -> district_ics mapping for roll-up "Observed"
+    st.session_state["school2ics"] = {
+        r["school_name"]: r["district_ics_url"]
+        for _, r in df.iterrows()
+        if r.get("school_name") and r.get("district_ics_url")
+    }
+
+    # Keep DF for page 2
     st.session_state["input_df"] = df
+
     st.success("CSV loaded.")
     st.dataframe(df, use_container_width=True)
 
+# -------------------------------
+# Persist planner/crawler settings into session
+# -------------------------------
 st.session_state.update({
-    "q_start": q_start, "q_end": q_end,
     "buffer_minutes": int(buffer_minutes),
     "session_duration_minutes": int(session_duration_minutes),
     "earliest_start": earliest_start,
     "latest_end": latest_end,
     "target_sessions": int(target_sessions),
     "min_sessions": int(min_sessions),
+    "q_start": q_start,
+    "q_end": q_end,
     "use_openai": bool(use_openai),
     "ai_assist_bell": bool(ai_assist_bell),
     "ai_assist_calendar": bool(ai_assist_calendar),
@@ -66,4 +111,4 @@ st.session_state.update({
     "delay_between_schools_seconds": int(delay_between_schools_seconds),
 })
 
-st.info("Go to **Run & Export** when ready →")
+st.markdown("Go to **Run & Export** when ready →")
