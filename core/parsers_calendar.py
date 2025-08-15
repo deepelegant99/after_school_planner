@@ -7,9 +7,13 @@ from typing import Set, List, Tuple
 import requests
 from ics import Calendar
 
+# add more names we see in K-12 calendars
 NO_SCHOOL_TERMS = [
-    "no school","holiday","break","professional development","staff development","inservice",
-    "teacher work day","pupil free","minimum day (no after school)","conference (no school)",
+    "no school", "school closed", "schools closed", "holiday", "break",
+    "professional development", "professional learning", "staff development",
+    "inservice", "in-service", "teacher work day", "workday", "pupil free",
+    "conference (no school)", "conference day", "parent-teacher conference",
+    "minimum day", "early release"  # treat these as no class; toggle later if you want
 ]
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; AfterSchoolPlanner/0.2)"}
@@ -23,21 +27,36 @@ def fetch_text(url: str) -> str | None:
         return None
     return None
 
+# (keep your helper as-is)
 def parse_ics_dates(ics_url: str) -> Set[date]:
     out: Set[date] = set()
     try:
-        r = requests.get(ics_url, headers=HEADERS, timeout=20)
+        url = ics_url.strip()
+        if url.lower().startswith("webcal://"):
+            url = "https://" + url[len("webcal://"):]  # normalize webcal -> https
+
+        r = requests.get(url, headers=HEADERS, timeout=20)
         r.raise_for_status()
         cal = Calendar(r.text)
+
+        # explicit holiday names frequently used without "holiday"/"no school"
+        HOLIDAY_NAMES = {
+            "labor day", "veterans day", "thanksgiving", "thanksgiving break",
+            "winter break", "winter recess", "spring break", "fall break",
+            "mlk day", "martin luther king", "presidents day", "memorial day",
+            "independence day", "new year", "christmas", "rosh hashanah",
+            "yom kippur", "diwali", "easter monday", "good friday", "chinese new year"
+        }
+
         for e in cal.events:
-            title = (e.name or "").lower()
-            if any(term in title for term in NO_SCHOOL_TERMS):
+            title = (e.name or "").lower().strip()
+            if any(term in title for term in NO_SCHOOL_TERMS) or any(h in title for h in HOLIDAY_NAMES):
                 d0 = e.begin.date()
                 d1 = e.end.date() if e.end else d0
                 dd = d0
                 while dd <= d1:
                     out.add(dd)
-                    dd = dd.fromordinal(dd.toordinal()+1)
+                    dd = dd.fromordinal(dd.toordinal() + 1)
     except Exception:
         pass
     return out

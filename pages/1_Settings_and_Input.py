@@ -43,7 +43,9 @@ uploaded = st.file_uploader(
 )
 
 if uploaded:
-    df = pd.read_csv(uploaded)
+    # NEW — treats "None"/"nan"/"null" as plain strings so we can sanitize later
+    df = pd.read_csv(uploaded, keep_default_na=False)
+
     st.session_state["input_df"] = df
     st.success("CSV loaded.")
     st.dataframe(df, use_container_width=True)
