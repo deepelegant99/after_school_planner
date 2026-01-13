@@ -136,7 +136,7 @@ for i, row in df.iterrows():
 
     school = _blank_to_none(row.get("school_name"))
     url = _blank_to_none(row.get("school_url"))
-    weekday = _blank_to_none(row.get("Day of the week"))
+    weekday = _blank_to_none(row.get("weekday"))
 
     bell_override = _blank_to_none(row.get("bell_schedule_page_url"))
     cal_override = _blank_to_none(row.get("school_calendar_page_url"))

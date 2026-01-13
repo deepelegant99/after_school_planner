@@ -6,7 +6,7 @@ Automates: CSV of schools → crawl Bell Schedule & Academic Calendar → parse 
 Required columns:
 - `school_name`
 - `school_url`
-- `Day of the week` (Mon/Tue/Wed/Thur/Fri)
+- `weekday` (Mon/Tue/Wed/Thur/Fri)
 
 Optional columns (skip crawling if provided):
 - `bell_schedule_page_url`

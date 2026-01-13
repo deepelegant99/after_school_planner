@@ -52,7 +52,7 @@ with st.expander("Crawler/AI", expanded=False):
 # -------------------------------
 st.subheader("Upload CSV")
 uploaded = st.file_uploader(
-    "Upload CSV (school_name, school_url, Day of the week, bell_schedule_page_url, school_calendar_page_url, district, district_ics_url)",
+    "Upload CSV (school_name, school_url, weekday, bell_schedule_page_url, school_calendar_page_url, district, district_ics_url)",
     type=["csv"],
 )
 
@@ -61,13 +61,26 @@ if uploaded:
     df = pd.read_csv(uploaded, keep_default_na=False)
 
     # Ensure newer columns exist
-    for col in ["district", "district_ics_url", "bell_schedule_page_url", "school_calendar_page_url"]:
+    for col in [
+        "weekday",
+        "district",
+        "district_ics_url",
+        "bell_schedule_page_url",
+        "school_calendar_page_url",
+    ]:
         if col not in df.columns:
             df[col] = ""
 
     # Trim/clean common text columns
-    for col in ["school_name","school_url","Day of the week","bell_schedule_page_url",
-                "school_calendar_page_url","district","district_ics_url"]:
+    for col in [
+        "school_name",
+        "school_url",
+        "weekday",
+        "bell_schedule_page_url",
+        "school_calendar_page_url",
+        "district",
+        "district_ics_url",
+    ]:
         df[col] = df[col].astype(str).str.strip()
 
     # Normalize district ICS
