@@ -102,7 +102,18 @@ if uploaded:
     st.session_state["input_df"] = df
 
     st.success("CSV loaded.")
-    st.dataframe(df, use_container_width=True)
+    display_df = df.rename(
+        columns={
+            "school_name": "Program",
+            "school_url": "School URL",
+            "weekday": "Weekday",
+            "district": "District",
+            "district_ics_url": "District ICS",
+            "bell_schedule_page_url": "Bell Schedule URL",
+            "school_calendar_page_url": "School Calendar URL",
+        }
+    )
+    st.dataframe(display_df, use_container_width=True)
 
 # -------------------------------
 # Persist planner/crawler settings into session
