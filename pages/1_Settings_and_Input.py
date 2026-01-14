@@ -52,13 +52,27 @@ with st.expander("Crawler/AI", expanded=False):
 # -------------------------------
 st.subheader("Upload CSV")
 uploaded = st.file_uploader(
-    "Upload CSV (school_name, school_url, weekday, bell_schedule_page_url, school_calendar_page_url, district, district_ics_url)",
+    "Upload CSV (school_name/program, school_url, weekday, bell_schedule_page_url, school_calendar_page_url, district, district_ics_url)",
     type=["csv"],
 )
 
 if uploaded:
     # Keep 'None'/'nan'/'null' as strings; we sanitize below
     df = pd.read_csv(uploaded, keep_default_na=False)
+
+    # Normalize Notion-friendly headers to internal names
+    normalized_cols = {col: str(col).strip() for col in df.columns}
+    df = df.rename(columns=normalized_cols)
+    friendly_to_internal = {
+        "Program": "school_name",
+        "School URL": "school_url",
+        "Weekday": "weekday",
+        "Bell Schedule URL": "bell_schedule_page_url",
+        "School Calendar URL": "school_calendar_page_url",
+        "District": "district",
+        "District ICS": "district_ics_url",
+    }
+    df = df.rename(columns=friendly_to_internal)
 
     # Ensure newer columns exist
     for col in [
@@ -102,7 +116,18 @@ if uploaded:
     st.session_state["input_df"] = df
 
     st.success("CSV loaded.")
-    st.dataframe(df, use_container_width=True)
+    display_df = df.rename(
+        columns={
+            "school_name": "Program",
+            "school_url": "School URL",
+            "weekday": "Weekday",
+            "district": "District",
+            "district_ics_url": "District ICS",
+            "bell_schedule_page_url": "Bell Schedule URL",
+            "school_calendar_page_url": "School Calendar URL",
+        }
+    )
+    st.dataframe(display_df, use_container_width=True)
 
 # -------------------------------
 # Persist planner/crawler settings into session
